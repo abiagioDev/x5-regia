@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+cache/
+.claude/
+calib/*.png
+calib/*.jpg
+calib/dbg/
+.DS_Store
+*.mp4
+*.mov
+*.insv
