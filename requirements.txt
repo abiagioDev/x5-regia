@@ -5,3 +5,4 @@ moderngl>=5.10
 scipy>=1.11
 pyobjc-framework-Vision>=10
 pyobjc-framework-Quartz>=10
+pywebview>=5

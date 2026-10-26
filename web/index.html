@@ -9,37 +9,58 @@
 <body>
 <header>
   <div class="brand">X5 <b>Regia</b></div>
-  <select id="fileSel"></select>
-  <button id="prepBtn">Prepara</button>
-  <div id="jobBox" class="job hidden"><div class="bar"><i></i></div><span></span></div>
+  <select id="projSel" title="Progetto"></select>
+  <button id="importBtn" title="Nuovo progetto da uno o più file .insv">+ Nuovo</button>
+  <span class="sep"></span>
+  <button id="undoBtn" title="Annulla (⌘Z)" disabled>↶</button>
+  <button id="redoBtn" title="Ripeti (⇧⌘Z)" disabled>↷</button>
+  <div id="jobs"></div>
   <div class="spacer"></div>
   <span id="saveState" class="muted"></span>
-  <button id="exportBtn" class="primary" disabled>Esporta video</button>
+  <button id="autoBtn" title="Propone una regia da ritmo della musica e movimento dei soggetti">✦ Regia automatica</button>
+  <button id="exportBtn" class="primary" disabled>Esporta</button>
 </header>
 
 <main>
   <section class="stage">
     <div class="previewWrap">
-      <canvas id="view" width="1280" height="720"></canvas>
+      <canvas id="view" width="1440" height="810"></canvas>
       <canvas id="overlay"></canvas>
       <div id="hud" class="hud"></div>
-      <div id="empty" class="emptyMsg">Scegli un file .insv in alto e premi <b>Prepara</b>.<br><span class="muted">La prima volta crea una copia leggera per l'anteprima (circa 1/3 della durata).</span></div>
+      <div id="empty" class="emptyMsg"><div id="emptyMsg">Caricamento…</div></div>
     </div>
-    <canvas id="overview" width="960" height="480"></canvas>
+    <canvas id="overview" width="720" height="360"></canvas>
   </section>
 
   <aside>
-    <div class="panel">
-      <h3>Soggetti <span class="muted">tasti 1–9</span></h3>
+    <div class="panel" id="pSubj">
+      <h3>Soggetti <span class="muted">tasti 1–9 · 0 = tutti</span></h3>
       <div id="subjList"></div>
-      <button id="addSubj">+ Nuovo soggetto: disegna un riquadro <kbd>T</kbd></button>
+      <div id="candBar" class="cand hidden"><span id="candCount"></span><span><button id="candAll" class="primary mini">Aggiungi tutte</button> <button id="candNone" class="mini">Ignora</button></span></div>
+      <div class="row2"><button id="detectBtn">Trova persone <kbd>P</kbd></button><button id="addSubj">Disegna riquadro <kbd>T</kbd></button></div>
     </div>
-    <div class="panel" id="kfPanel">
+    <div class="panel" id="pKf">
       <h3>Keyframe <button id="addKf" class="mini">+ Keyframe <kbd>K</kbd></button></h3>
       <div id="kfBody" class="muted"></div>
     </div>
-    <div class="panel">
-      <h3>Formato <span class="muted" id="fmtSize"></span></h3>
+    <div class="panel" id="pEdit">
+      <h3>Montaggio</h3>
+      <div id="editBody"></div>
+    </div>
+    <div class="panel" id="pClips">
+      <h3>Clip</h3>
+      <div id="clipBody"></div>
+    </div>
+    <div class="panel" id="pAudio">
+      <h3>Audio</h3>
+      <div id="audioBody"></div>
+    </div>
+    <div class="panel" id="pColor">
+      <h3>Colore</h3>
+      <div id="colorBody"></div>
+    </div>
+    <div class="panel" id="pFormat">
+      <h3>Formato ed export <span class="muted" id="fmtSize"></span></h3>
       <label class="row">Proporzioni
         <select id="fmtRatio">
           <option value="16:9">16:9 orizzontale (YouTube)</option>
@@ -57,35 +78,39 @@
         <select id="fmtRes"><option value="720">720p</option><option value="1080">1080p</option><option value="1440">1440p</option><option value="2160">4K (2160p)</option></select></label>
       <label class="row">Codec
         <select id="fmtCodec"><option value="hevc">HEVC (H.265)</option><option value="h264">H.264 (compatibilità)</option><option value="prores">ProRes 422 (montaggio)</option></select></label>
-      <label class="row" id="fmtQualRow">Qualità
+      <label class="row">Qualità
         <select id="fmtQual"><option value="standard">Standard</option><option value="alta">Alta</option><option value="massima">Massima</option></select></label>
       <label class="row">Guida in anteprima
         <select id="fmtGuide"><option value="">Nessuna</option><option value="9:16">9:16</option><option value="1:1">1:1</option><option value="4:5">4:5</option><option value="16:9">16:9</option></select></label>
+      <div class="sub-h">Coda di export</div>
+      <div id="queueList"></div>
+      <div class="row"><button id="addQueue">+ Aggiungi questo formato</button><button id="runQueue" disabled>Esporta coda</button></div>
     </div>
-    <div class="panel">
-      <h3>Regia</h3>
+    <div class="panel" id="pSettings">
+      <h3>Regia e cucitura</h3>
       <label class="row">Ritmo movimenti
         <select id="pace"><option value="1.35">Calmo</option><option value="1" selected>Normale</option><option value="0.7">Rapido</option></select></label>
-      <label class="row">Respiro (allarga nei passaggi lunghi)
+      <label class="row">Respiro nei passaggi lunghi
         <input type="range" id="breathe" min="0" max="1.5" step="0.05" value="1"></label>
       <label class="row">Morbidezza inseguimento
         <input type="range" id="follow" min="0" max="2" step="0.05" value="0.5"></label>
-      <label class="row"><span>Mostra riquadri dei soggetti</span><input type="checkbox" id="showBoxes" checked></label>
+      <label class="row">Distanza cucitura <span class="rng"><input type="range" id="stitch" min="0" max="2" step="0.02" value="0"><output id="stitchLbl">∞</output></span></label>
+      <div class="muted hint">Avvicina la cucitura se chi è vicino alla camera si sdoppia sulla giunta.</div>
+      <label class="row"><span>Riquadri dei soggetti</span><input type="checkbox" id="showBoxes" checked></label>
       <label class="row"><span>Stabilizzazione giroscopio</span><input type="checkbox" id="stab" checked></label>
       <label class="row">Assi IMU
         <select id="axisMap"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></label>
       <label class="row">Offset giroscopio (ms)
         <input type="number" id="gyroOff" value="0" step="10" style="width:70px"></label>
     </div>
-    <div class="panel keys">
+    <div class="panel keys closed" id="pKeys">
       <h3>Tasti</h3>
-      <div><kbd>Spazio</kbd> play/pausa · <kbd>←</kbd><kbd>→</kbd> frame (<kbd>⇧</kbd> 5 s) · <kbd>↑</kbd><kbd>↓</kbd> keyframe</div>
-      <div><kbd>K</kbd> keyframe con la vista attuale (la camera scivola dal precedente)</div>
-      <div><kbd>1</kbd>–<kbd>9</kbd> movimento verso il soggetto · <kbd>⇧</kbd>+<kbd>1</kbd>–<kbd>9</kbd> stacco</div>
-      <div><kbd>T</kbd> disegna un riquadro e segui una persona/oggetto</div>
-      <div><kbd>A</kbd> stretto · <kbd>S</kbd> medio · <kbd>D</kbd> largo · <kbd>F</kbd> totale</div>
-      <div><kbd>⌫</kbd> elimina keyframe · trascina l'anteprima per mirare, rotella per lo zoom</div>
-      <div>Timeline: doppio clic sulla traccia Camera = nuovo keyframe, trascina i rombi per spostarli, rotella = zoom</div>
+      <div><kbd>Spazio</kbd> play · <kbd>←</kbd><kbd>→</kbd> frame (<kbd>⇧</kbd> 5 s) · <kbd>J</kbd><kbd>L</kbd> ±2 s · <kbd>↑</kbd><kbd>↓</kbd> keyframe</div>
+      <div><kbd>K</kbd> keyframe con la vista attuale · <kbd>⌘Z</kbd> annulla · <kbd>⇧⌘Z</kbd> ripeti</div>
+      <div><kbd>1</kbd>–<kbd>9</kbd> vai al soggetto · <kbd>0</kbd> tutti · con <kbd>⇧</kbd> = stacco</div>
+      <div><kbd>A</kbd> stretto/primo piano · <kbd>S</kbd> medio/mezza figura · <kbd>D</kbd> largo/figura intera · <kbd>F</kbd> totale</div>
+      <div><kbd>P</kbd> trova persone · <kbd>T</kbd> disegna un riquadro da seguire</div>
+      <div><kbd>I</kbd> segna inizio · <kbd>O</kbd> fine intervallo · <kbd>X</kbd> togli il tratto · <kbd>⌫</kbd> elimina selezione</div>
     </div>
   </aside>
 </main>
@@ -99,7 +124,24 @@
   <canvas id="timeline"></canvas>
 </footer>
 
+<dialog id="newDlg">
+  <h3>Nuovo progetto</h3>
+  <label class="row">Nome <input id="newName" type="text" placeholder="Sessione"></label>
+  <div class="muted hint">Scegli una o più clip, nell'ordine in cui vuoi metterle in sequenza.</div>
+  <div id="newFiles"></div>
+  <div class="row"><button id="newImport">Importa da un'altra cartella / scheda SD…</button><span><button id="newCancel">Annulla</button> <button id="newCreate" class="primary">Crea</button></span></div>
+</dialog>
+<div id="toast"></div>
+
 <video id="vid" playsinline preload="auto" style="display:none"></video>
-<script src="app.js"></script>
+<audio id="extAudio" preload="auto"></audio>
+<script src="js/util.js"></script>
+<script src="js/state.js"></script>
+<script src="js/motion.js"></script>
+<script src="js/render.js"></script>
+<script src="js/timeline.js"></script>
+<script src="js/edit.js"></script>
+<script src="js/panels.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>

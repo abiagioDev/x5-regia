@@ -38,7 +38,35 @@ def lens_matrices(L):
 def shader_params(L):
     Ma, Mb = lens_matrices(L)
     return {"Ma": Ma.ravel().tolist(), "Mb": Mb.ravel().tolist(), "ca": [L["a"]["cx"], L["a"]["cy"]],
-            "cb": [L["b"]["cx"], L["b"]["cy"]], "f": [L["f1"], L["f3"], L["f5"]], "size": L["size"], "seam": L["seam"]}
+            "cb": [L["b"]["cx"], L["b"]["cy"]], "f": [L["f1"], L["f3"], L["f5"]], "size": L["size"], "seam": L["seam"],
+            "baseline": L.get("baseline", 0.03), "gainA": L.get("gainA", [1, 1, 1]), "gainB": L.get("gainB", [1, 1, 1])}
+
+
+def estimate_gains(proxy, L, times):
+    """Guadagni RGB per uniformare il colore dei due obiettivi, misurati nella fascia di sovrapposizione."""
+    import subprocess
+    th = np.radians(np.linspace(86, 94, 9)); ph = np.radians(np.arange(0, 360, 1.0))
+    TH, PH = np.meshgrid(th, ph)
+    d = np.stack([np.sin(TH) * np.cos(PH), np.sin(TH) * np.sin(PH), np.cos(TH)], -1).astype(np.float32)
+    (ma, mb, _) = maps_for_dirs(d, L, scale=1.0)
+    sa, sb = [], []
+    for t in times:
+        r = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", str(proxy), "-frames:v", "1",
+                            "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True)
+        if not r.stdout:
+            continue
+        img = np.frombuffer(r.stdout, np.uint8)
+        h = int(round((len(img) / 3 / 2) ** 0.5)); img = img.reshape(h, 2 * h, 3).astype(np.float32)
+        k = h / L["size"]
+        A = cv2.remap(img, ma[0] * k, ma[1] * k, cv2.INTER_LINEAR)
+        B = cv2.remap(img, mb[0] * k + h, mb[1] * k, cv2.INTER_LINEAR)
+        ok = (A.max(-1) < 240) & (B.max(-1) < 240) & (A.min(-1) > 12) & (B.min(-1) > 12)
+        sa.append(A[ok]); sb.append(B[ok])
+    if not sa:
+        return [1, 1, 1], [1, 1, 1]
+    A = np.concatenate(sa).mean(0); B = np.concatenate(sb).mean(0)
+    ga = np.clip(np.sqrt(B / A), 0.8, 1.25); gb = np.clip(np.sqrt(A / B), 0.8, 1.25)
+    return np.round(ga, 4).tolist(), np.round(gb, 4).tolist()
 
 
 def maps_for_dirs(d, L, scale=1.0):

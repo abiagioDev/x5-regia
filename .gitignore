@@ -9,3 +9,5 @@ calib/dbg/
 *.mp4
 *.mov
 *.insv
+data/
+*.app/

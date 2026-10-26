@@ -111,6 +111,14 @@ def main(job_file):
         return Quartz.CGImageCreate(CROP, CROP, 8, 32, CROP * 4, cs, Quartz.kCGImageAlphaNoneSkipLast, prov,
                                     None, False, Quartz.kCGRenderingIntentDefault)
 
+    def iou(a, b):
+        x0, y0 = max(a[0], b[0]), max(a[1], b[1])
+        x1, y1 = min(a[0] + a[2], b[0] + b[2]), min(a[1] + a[3], b[1] + b[3])
+        inter = max(0, x1 - x0) * max(0, y1 - y0)
+        return inter / (a[2] * a[3] + b[2] * b[3] - inter + 1e-9)
+
+    person = J.get("person")
+    # person None = decidi al primo frame se il riquadro è una persona (allora usa anche il rilevatore)
     step = 1 if J["dir"] >= 0 else -1
     f0 = J["frame"]
     last = (nframes - 1) if step > 0 else 0
@@ -148,6 +156,9 @@ def main(job_file):
         img = render(b, i)
         if n == 0:
             res = box; conf = 1.0
+            if person is None:
+                from detect import detect_people
+                person = any(iou(db, box) > 0.4 for db in detect_people(img))
         else:
             ok, err = handler.performRequests_onCGImage_error_([req], img, None)
             r = req.results()[0] if ok and req.results() else None
@@ -156,6 +167,16 @@ def main(job_file):
             req.setInputObservation_(r)
             bb = r.boundingBox(); res = (bb.origin.x, bb.origin.y, bb.size.width, bb.size.height)
             conf = float(r.confidence())
+            if person:  # persona: il rilevatore corregge posizione e dimensione (figura intera)
+                from detect import detect_people
+                best, bi = None, 0.25
+                for db in detect_people(img):
+                    v = iou(db, res)
+                    if v > bi:
+                        best, bi = db, v
+                if best:
+                    res, conf = best[:4], max(conf, best[4])
+                    req = new_request(res); handler = Vision.VNSequenceRequestHandler.alloc().init()
         cx = (res[0] + res[2] / 2) * 2 - 1; cy = (res[1] + res[3] / 2) * 2 - 1
         dview = np.array([cx * th, cy * th, 1.0])
         d = view_matrix(center) @ (dview / np.linalg.norm(dview))
